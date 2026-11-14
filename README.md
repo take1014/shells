@@ -7,6 +7,7 @@ A small collection of shell scripts for Linux. Each one runs with bash and stand
 | `mount_ssd.sh` | Mount registered USB SSDs at their configured mount points | Required |
 | `umount_ssd.sh` | Unmount registered SSDs and power them off for safe removal | Required |
 | `scan_lan.sh` | List hosts on the LAN and the remote-access ports they accept | Not required |
+| `copy_ssh_key.sh` | Copy one of your SSH public keys to user@host interactively | Not required |
 
 ## mount_ssd.sh
 
@@ -83,3 +84,23 @@ IP               MAC                HOSTNAME                        OPEN PORTS
 ```
 
 Requirements: bash 4.3+, iproute2 (`ip`), ping, getent, awk, xargs, coreutils
+
+## copy_ssh_key.sh
+
+Copies one of your SSH public keys in `~/.ssh` to another PC with `ssh-copy-id`, so you can log in there without a password.
+Only public keys (`*.pub`) are sent; private keys never leave this PC.
+
+```bash
+bash copy_ssh_key.sh
+```
+
+1. Pick a key from the list of `~/.ssh/*.pub` (shown with fingerprint and comment).
+   Files that are not public keys, and public keys without a matching private key, are skipped.
+2. Enter the target as `user@host` (or just `host` to use your own user name) and the SSH port (default 22).
+3. The key is copied (you may be asked for the target's password, and for the key's passphrase if it is not in ssh-agent), then a key-only login is tested.
+   A key that is already installed is skipped.
+4. You can copy the same key to more hosts in a row.
+
+If `~/.ssh` has no key pair, create one first with `ssh-keygen -t ed25519`.
+
+Requirements: bash, OpenSSH client (`ssh`, `ssh-keygen`, `ssh-copy-id`), awk, coreutils
