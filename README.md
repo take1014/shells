@@ -1,39 +1,39 @@
 # shells
 
-Linux 用の小さなシェルスクリプト集です。どれも bash と標準的なコマンドだけで動きます。
+A small collection of shell scripts for Linux. Each one runs with bash and standard command-line tools only.
 
-| スクリプト | 内容 | root |
+| Script | Description | Root |
 |---|---|---|
-| `mount_ssd.sh` | 登録済みの USB SSD を決まったマウントポイントにマウントする | 必要 |
-| `umount_ssd.sh` | 登録済みの SSD をアンマウントし、安全に取り外せるよう電源を切る | 必要 |
-| `scan_lan.sh` | LAN 上のホストと、開いているリモートアクセス用ポートを一覧表示する | 不要 |
+| `mount_ssd.sh` | Mount registered USB SSDs at their configured mount points | Required |
+| `umount_ssd.sh` | Unmount registered SSDs and power them off for safe removal | Required |
+| `scan_lan.sh` | List hosts on the LAN and the remote-access ports they accept | Not required |
 
 ## mount_ssd.sh
 
-USB 接続の SSD を、ファイルシステム UUID ごとに登録したマウントポイントへマウントします。
-UUID は SSD 自体に保存されているため、どの PC で実行しても同じ SSD は同じ場所にマウントされます。
+Mounts USB SSDs at mount points registered per filesystem UUID.
+The UUID is stored on the SSD itself, so the same SSD is mounted at the same place on every PC.
 
 ```bash
-sudo bash mount_ssd.sh          # 接続中の SSD をすべてマウント(未登録のものは登録を尋ねる)
-sudo bash mount_ssd.sh --edit   # 登録内容の変更・削除
+sudo bash mount_ssd.sh          # mount all connected SSDs (asks about unregistered ones)
+sudo bash mount_ssd.sh --edit   # change or delete registrations
 ```
 
-- 未登録の SSD を見つけると、マウントポイントを尋ねます。
-  - パスを入力すると登録してマウントします。
-  - 空のまま Enter を押すと、今回はスキップします。
-  - `-` を入力すると「無視」として登録し、以後マウントも質問もしません。
-- マウントポイントは `/mnt/` か `/media/` の下に限ります(空白、`..`、シンボリックリンクは不可)。
-- 空でないディレクトリや、別のデバイスが使用中のマウントポイントにはマウントしません。
-- デスクトップ環境が自動マウントした場所(`/media/...`、`/run/media/...`)は、先にアンマウントしてから付け替えます。
-- マウントオプションは `nosuid,nodev` です。
-- vfat / exfat / NTFS は、`sudo` を実行したユーザーの所有としてマウントします。NTFS は ntfs-3g がなければカーネルの `ntfs3` ドライバを使います。
-- ext4 などで、マウントポイントの所有者が実行ユーザーと違う場合(別の PC で作ったときなど)は、所有者を変更するか尋ねます。
+- When an unregistered SSD is found, you are asked for a mount point:
+  - Enter a path to register and mount it.
+  - Press Enter with no input to skip it this time.
+  - Enter `-` to register it as ignored; it will never be mounted or asked about again.
+- Mount points must be under `/mnt/` or `/media/` (no spaces, `..`, or symlinks).
+- Non-empty directories and mount points already used by another device are never mounted over.
+- Desktop auto-mounts (`/media/...`, `/run/media/...`) are unmounted first and then moved to the registered mount point.
+- Mount options are `nosuid,nodev`.
+- vfat / exfat / NTFS are mounted as owned by the user who ran `sudo`. NTFS uses the kernel's `ntfs3` driver when ntfs-3g is not installed.
+- For filesystems such as ext4, if the mount point is owned by a different user than the invoking one (e.g. it was created on another PC), you are asked whether to change the owner.
 
-必要なもの: bash、util-linux、awk、coreutils
+Requirements: bash, util-linux, awk, coreutils
 
-### 設定ファイル
+### Configuration file
 
-設定はスクリプトと同じディレクトリの `mount_ssd.conf` に保存されます。1 行に 1 件、`<ファイルシステムUUID> <マウントポイント>` の形式です。
+Registrations are stored in `mount_ssd.conf` in the same directory as the script, one `<filesystem UUID> <mount point>` per line.
 
 ```
 1234-ABCD /mnt/data
@@ -41,38 +41,39 @@ sudo bash mount_ssd.sh --edit   # 登録内容の変更・削除
 abcd1234-0000-1111-2222-333344445555 -
 ```
 
-マウントポイントが `-` の行は「無視」を意味します。手で編集してもかまいません(読み込み時に同じ検査をします)。
+A mount point of `-` means "ignore". The file may be edited by hand (the same checks are applied when it is read).
+It is listed in `.gitignore` so it is never committed.
 
 ## umount_ssd.sh
 
-`mount_ssd.conf` に登録された SSD をアンマウントし、USB ディスクであれば電源を切るか尋ねます。
+Unmounts SSDs registered in `mount_ssd.conf`, then asks whether to power off each USB disk.
 
 ```bash
-sudo bash umount_ssd.sh                  # マウント中の登録済み SSD をすべてアンマウント
-sudo bash umount_ssd.sh /mnt/data ...    # 指定したマウントポイントだけアンマウント
+sudo bash umount_ssd.sh                  # unmount all mounted registered SSDs
+sudo bash umount_ssd.sh /mnt/data ...    # unmount only the given mount points
 ```
 
-- マウントされているデバイスの UUID が登録内容と違う場合は、アンマウントしません。
-- 使用中でアンマウントできない場合は、`fuser` があれば使用中のプロセスを表示します。
-- ディスクにまだマウント中のパーティションや、使用中の LUKS / LVM / RAID が残っている場合は、電源を切りません。
+- A mount point is not unmounted if the device mounted there does not match the registered UUID.
+- If a mount point is busy, the processes using it are shown (when `fuser` is available).
+- A disk is not powered off while it still has mounted partitions or active LUKS / LVM / RAID devices.
 
-必要なもの: bash、util-linux、awk、coreutils(`fuser` は任意)
+Requirements: bash, util-linux, awk, coreutils (`fuser` is optional)
 
 ## scan_lan.sh
 
-直接つながっているサブネットだけをスキャンし(ルーターの先は対象外)、見つかったホストの IP、MAC、ホスト名と、開いているポートを表示します。
+Scans only directly attached subnets (never anything behind the router) and shows the IP, MAC, hostname, and open ports of each host found.
 
 ```bash
-bash scan_lan.sh                  # デフォルトルートのインターフェースのサブネットをスキャン
-bash scan_lan.sh 192.168.3.0/24   # 指定したサブネットをスキャン(プレフィックスは /22〜/30)
+bash scan_lan.sh                  # scan the subnet of the default-route interface
+bash scan_lan.sh 192.168.3.0/24   # scan the given attached subnet (prefix /22 to /30)
 ```
 
-- 調べるポート: 22 (ssh)、445 (smb)、3389 (rdp)、5900 (vnc)
-- ping に応答しないホスト(Windows ファイアウォールなど)も、ARP に応答すれば一覧に含めます。
-- 自分の PC には `(this PC)`、デフォルトゲートウェイには `(router)` と表示します。
-- root 権限は不要です。
+- Ports checked: 22 (ssh), 445 (smb), 3389 (rdp), 5900 (vnc)
+- Hosts that drop ping (e.g. behind the Windows firewall) are still listed if they answer ARP.
+- This PC is marked `(this PC)` and the default gateway `(router)`.
+- No root privileges are needed.
 
-出力例:
+Example output:
 
 ```
 IP               MAC                HOSTNAME                        OPEN PORTS
@@ -81,4 +82,4 @@ IP               MAC                HOSTNAME                        OPEN PORTS
 192.168.1.20     aa:bb:cc:dd:ee:02  nas.lan                         ssh/22 smb/445
 ```
 
-必要なもの: bash 4.3 以上、iproute2 (`ip`)、ping、getent、awk、xargs、coreutils
+Requirements: bash 4.3+, iproute2 (`ip`), ping, getent, awk, xargs, coreutils
